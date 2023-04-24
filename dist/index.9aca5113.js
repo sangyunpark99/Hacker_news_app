@@ -566,11 +566,43 @@ const store = {
     currentPage: 1,
     feeds: []
 };
+function applyApiMixins(targetClass, baseClasses) {
+    baseClasses.forEach((baseClass)=>{
+        Object.getOwnPropertyNames(baseClass.prototype).forEach((name)=>{
+            const descriptor = Object.getOwnPropertyDescriptor(baseClass.prototype, name);
+            if (descriptor) Object.defineProperty(targetClass.prototype, name, descriptor);
+        });
+    });
+}
+class Api {
+    getRequest(url) {
+        const ajax = new XMLHttpRequest();
+        ajax.open("GET", url, false);
+        ajax.send();
+        return JSON.parse(ajax.response);
+    }
+}
+class NewsFeedApi {
+    getData() {
+        return this.getRequest(NEWS_URL);
+    }
+}
+class NewsDetailApi {
+    getData(id) {
+        return this.getRequest(CONTENTS_URL.replace("@id", id));
+    }
+}
 function getData(url) {
     ajax.open("GET", url, false);
     ajax.send();
     return JSON.parse(ajax.response);
 } // 요청 보내기
+applyApiMixins(NewsFeedApi, [
+    Api
+]);
+applyApiMixins(NewsDetailApi, [
+    Api
+]);
 function makeFeed(feeds) {
     for(let i = 0; i < feeds.length; i++)feeds[i].read = false;
     return feeds;
@@ -581,6 +613,7 @@ function updateView(html) {
 }
 function newsFeed() {
     // 글 목록 화면
+    const api = new NewsFeedApi();
     let newsFeed = store.feeds; // newsFeed 데이터 받아오기
     const newsList = [];
     let template = `
@@ -607,7 +640,7 @@ function newsFeed() {
     </div>
   </div>
   `;
-    if (newsFeed.length == 0) newsFeed = store.feeds = getData(NEWS_URL);
+    if (newsFeed.length == 0) newsFeed = store.feeds = api.getData();
     for(let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++)// 한페이지에 10개씩 보여주기
     newsList.push(`
     <div class="p-6 ${newsFeed[i].read ? "bg-red-500" : "bg-white"} mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
@@ -635,7 +668,8 @@ function newsFeed() {
 }
 function newsDetail() {
     const id = location.hash.substring(7); // 7번째 index부터 사용
-    const newsContent = getData(CONTENTS_URL.replace("@id", id));
+    const api = new NewsDetailApi();
+    const newsContent = api.getData(id);
     let template = `<div class="bg-gray-600 min-h-screen pb-8">
   <div class="bg-white text-xl">
     <div class="mx-auto px-4">

@@ -1,32 +1,32 @@
-type Store = { // type alias
+interface Store { // type alias
   currentPage:number;
   feeds: NewsFeed[];
 }
 
 // intersection 중복 타입 제거
-type News = {
-  id: number;
-  time_ago: string;
-  title: string;
-  url: string;
-  user: string;
-  content: string;
+interface News { // readonly 값 변경 방지
+  readonly id: number;
+  readonly time_ago: string;
+  readonly title: string;
+  readonly url: string;
+  readonly user: string;
+  readonly content: string;
 };
 
-type NewsFeed = News & {
-  comments_count: number;
-  points: number;
+interface NewsFeed extends News {
+  readonly comments_count: number;
+  readonly points: number;
   read?: boolean; // optional
 }
 
-type NewsDetail = News & {
-  content: string;
-  comments:[];
+interface NewsDetail extends News{
+  readonly content: string;
+  readonly comments:[];
 }
 
-type NewsComment = News & {
-  comments: [];
-  level: number;
+interface NewsComment extends News{
+  readonly comments: [];
+  readonly level: number;
 }
 
 const container:HTMLElement | null = document.getElementById("root");
@@ -39,12 +39,53 @@ const store:Store = {
   feeds: [],
 };
 
+function applyApiMixins(targetClass:any, baseClasses:any[]){
+  baseClasses.forEach((baseClass) => {
+    Object.getOwnPropertyNames(baseClass.prototype).forEach(name => {
+      const descriptor = Object.getOwnPropertyDescriptor(baseClass.prototype,name);
+
+      if(descriptor){
+        Object.defineProperty(targetClass.prototype,name,descriptor);
+      }
+    });
+  })
+}
+
+class Api {
+
+  getRequest<AjaxResponse>(url:string):AjaxResponse{
+    const ajax = new XMLHttpRequest();
+    ajax.open("GET", url, false);
+    ajax.send();
+
+    return JSON.parse(ajax.response);
+  }
+}
+
+class NewsFeedApi{
+  getData():NewsFeed[]{
+    return this.getRequest<NewsFeed[]>(NEWS_URL);
+  }
+}
+
+class NewsDetailApi{
+  getData(id:string):NewsDetail{
+    return this.getRequest<NewsDetail>(CONTENTS_URL.replace('@id',id));
+  }
+}
+
 function getData<AjaxResponse>(url:string):AjaxResponse { // Generic
   ajax.open("GET", url, false);
   ajax.send();
 
   return JSON.parse(ajax.response);
 } // 요청 보내기
+
+interface NewsFeedApi extends Api {}; // mixin
+interface NewsDetailApi extends Api {};
+
+applyApiMixins(NewsFeedApi,[Api]);
+applyApiMixins(NewsDetailApi,[Api]);
 
 function makeFeed(feeds:NewsFeed[]): NewsFeed[] {
   for (let i = 0; i < feeds.length; i++) {
@@ -64,6 +105,7 @@ function updateView(html:string): void{
 
 function newsFeed():void {
   // 글 목록 화면
+  const api = new NewsFeedApi();
   let newsFeed = store.feeds; // newsFeed 데이터 받아오기
   const newsList = [];
   let template = `
@@ -92,7 +134,7 @@ function newsFeed():void {
   `;
 
   if (newsFeed.length == 0) {
-    newsFeed = store.feeds = getData<NewsFeed[]>(NEWS_URL);
+    newsFeed = store.feeds = api.getData();
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
@@ -137,8 +179,8 @@ function newsFeed():void {
 
 function newsDetail():void{
   const id = location.hash.substring(7); // 7번째 index부터 사용
-
-  const newsContent = getData<NewsDetail>(CONTENTS_URL.replace("@id", id));
+  const api = new NewsDetailApi();
+  const newsContent = api.getData(id);
 
   let template = `<div class="bg-gray-600 min-h-screen pb-8">
   <div class="bg-white text-xl">
