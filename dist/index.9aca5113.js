@@ -593,6 +593,7 @@ class NewsDetailApi {
     }
 }
 function getData(url) {
+    // Generic
     ajax.open("GET", url, false);
     ajax.send();
     return JSON.parse(ajax.response);
@@ -603,20 +604,37 @@ applyApiMixins(NewsFeedApi, [
 applyApiMixins(NewsDetailApi, [
     Api
 ]);
-function makeFeed(feeds) {
-    for(let i = 0; i < feeds.length; i++)feeds[i].read = false;
-    return feeds;
+class View {
+    constructor(containerId, template){
+        const containerElement = document.getElementById(containerId);
+        if (!containerElement) throw "최상위 컨테이너가 없어 UI를 진행하지 못합니다";
+        this.container = containerElement;
+        this.template = template;
+        this.htmlList = [];
+        this.renderTemplate = template;
+    }
+    updateView() {
+        this.container.innerHTML = this.renderTemplate;
+        this.renderTemplate = this.template;
+    }
+    addHtml(htmlString) {
+        this.htmlList.push(htmlString);
+    }
+    getHtml() {
+        const snapshot = this.htmlList.join("");
+        this.clearHtmlList();
+        return snapshot;
+    }
+    setTemplateData(key, value) {
+        this.renderTemplate = this.renderTemplate.replace(`{{__${key}__}}`, value);
+    }
+    clearHtmlList() {
+        this.htmlList = [];
+    }
 }
-function updateView(html) {
-    if (container != null) container.innerHTML = html;
-    else console.error("최상위 컨이너가 존재하지 않아 UI를 진행하지 못합니다");
-}
-function newsFeed() {
-    // 글 목록 화면
-    const api = new NewsFeedApi();
-    let newsFeed = store.feeds; // newsFeed 데이터 받아오기
-    const newsList = [];
-    let template = `
+class NewsFeedView extends View {
+    constructor(containerId){
+        let template = `
     <div class="bg-gray-600 min-h-screen">
     <div class="bg-white text-xl">
       <div class="mx-auto px-4">
@@ -640,37 +658,51 @@ function newsFeed() {
     </div>
   </div>
   `;
-    if (newsFeed.length == 0) newsFeed = store.feeds = api.getData();
-    for(let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++)// 한페이지에 10개씩 보여주기
-    newsList.push(`
-    <div class="p-6 ${newsFeed[i].read ? "bg-red-500" : "bg-white"} mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
-        <div class="flex">
-          <div class="flex-auto">
-            <a href="#/show/${newsFeed[i].id}">${newsFeed[i].title}</a>  
+        super(containerId, template);
+        this.api = new NewsFeedApi();
+        this.feeds = store.feeds; // newsFeed 데이터 받아오기
+        if (this.feeds.length == 0) {
+            this.feeds = store.feeds = this.api.getData();
+            this.makeFeeds();
+        }
+    }
+    render() {
+        store.currentPage = Number(location.hash.substring(7) || 1);
+        for(let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++){
+            // 한페이지에 10개씩 보여주기
+            const { id , title , comments_count , user , points , time_ago , read  } = this.feeds[i]; // 구조분해 할당
+            this.addHtml(`
+      <div class="p-6 ${read ? "bg-red-500" : "bg-white"} mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
+          <div class="flex">
+            <div class="flex-auto">
+              <a href="#/show/${id}">${title}</a>  
+            </div>
+            <div class="text-center text-sm">
+              <div class="w-10 text-white bg-green-300 rounded-lg px-0 py-2">${comments_count}</div>
+            </div>
           </div>
-          <div class="text-center text-sm">
-            <div class="w-10 text-white bg-green-300 rounded-lg px-0 py-2">${newsFeed[i].comments_count}</div>
+          <div class="flex mt-3">
+            <div class="grid grid-cols-3 text-sm text-gray-500">
+              <div><i class="fas fa-user mr-1"></i>${user}</div>
+              <div><i class="fas fa-heart mr-1"></i>${points}</div>
+              <div><i class="far fa-clock mr-1"></i>${time_ago}</div>
+            </div>  
           </div>
-        </div>
-        <div class="flex mt-3">
-          <div class="grid grid-cols-3 text-sm text-gray-500">
-            <div><i class="fas fa-user mr-1"></i>${newsFeed[i].user}</div>
-            <div><i class="fas fa-heart mr-1"></i>${newsFeed[i].points}</div>
-            <div><i class="far fa-clock mr-1"></i>${newsFeed[i].time_ago}</div>
-          </div>  
-        </div>
-      </div>   
-  `);
-    template = template.replace("{{__news_feed__}}", newsList.join(""));
-    template = template.replace("{{__prev_page__}}", String(store.currentPage > 1 ? store.currentPage - 1 : 1));
-    template = template.replace("{{__next_page__}}", String(store.currentPage < 3 ? store.currentPage + 1 : store.currentPage));
-    updateView(template);
+        </div>   
+    `);
+        }
+        this.setTemplateData("news_feed", this.getHtml());
+        this.setTemplateData("prev_page", String(store.currentPage > 1 ? store.currentPage - 1 : 1));
+        this.setTemplateData("next_page", String(store.currentPage < 3 ? store.currentPage + 1 : store.currentPage));
+        this.updateView();
+    }
+    makeFeeds() {
+        for(let i = 0; i < this.feeds.length; i++)this.feeds[i].read = false;
+    }
 }
-function newsDetail() {
-    const id = location.hash.substring(7); // 7번째 index부터 사용
-    const api = new NewsDetailApi();
-    const newsContent = api.getData(id);
-    let template = `<div class="bg-gray-600 min-h-screen pb-8">
+class NewsDetailView extends View {
+    constructor(containerId){
+        let template = `<div class="bg-gray-600 min-h-screen pb-8">
   <div class="bg-white text-xl">
     <div class="mx-auto px-4">
       <div class="flex justify-between items-center py-6">
@@ -678,7 +710,7 @@ function newsDetail() {
           <h1 class="font-extrabold">Hacker News</h1>
         </div>
         <div class="items-center justify-end">
-          <a href="#/page/${store.currentPage}" class="text-gray-500">
+          <a href="#/page/{{__currentPage__}}" class="text-gray-500">
             <i class="fa fa-times"></i>
           </a>
         </div>
@@ -687,9 +719,9 @@ function newsDetail() {
   </div>
 
   <div class="h-full border rounded-xl bg-white m-6 p-4 ">
-    <h2>${newsContent.title}</h2>
+    <h2>{{__title__}}</h2>
     <div class="text-gray-400 h-20">
-      ${newsContent.content}
+      {{__content__}}
     </div>
 
     {{__comments__}}
@@ -697,39 +729,71 @@ function newsDetail() {
   </div>
 </div>
 `;
-    for(let i = 0; i < store.feeds.length; i++)if (store.feeds[i].id === Number(id)) {
-        store.feeds[i].read = true;
-        break;
+        super(containerId, template);
     }
-    updateView(template.replace("{{__comments__}}", makeComment(newsContent.comments)));
-}
-function makeComment(comments) {
-    const commentString = [];
-    for(let i = 0; i < comments.length; i++){
-        const comment = comments[i];
-        commentString.push(`<div style="padding-left: ${comment.level * 40}px;" class="mt-4">
-        <div class="text-gray-400">
-          <i class="fa fa-sort-up mr-2"></i>
-          <strong>${comment.user}</strong> ${comment.time_ago}
-        </div>
-        <p class="text-gray-700">${comment.content}</p>
-      </div>   `);
-        if (comment.comments.length > 0) commentString.push(makeComment(comment.comments));
+    render() {
+        const id = location.hash.substring(7); // 7번째 index부터 사용
+        const api = new NewsDetailApi();
+        const newsDetail = api.getData(id);
+        for(let i = 0; i < store.feeds.length; i++)if (store.feeds[i].id === Number(id)) {
+            store.feeds[i].read = true;
+            break;
+        }
+        this.setTemplateData("comments", this.makeComment(newsDetail.comments));
+        this.setTemplateData("currentPage", String(store.currentPage));
+        this.setTemplateData("title", newsDetail.title);
+        this.setTemplateData("content", newsDetail.content);
+        this.updateView();
     }
-    return commentString.join("");
+    makeComment(comments) {
+        for(let i = 0; i < comments.length; i++){
+            const comment = comments[i];
+            this.addHtml(`<div style="padding-left: ${comment.level * 40}px;" class="mt-4">
+          <div class="text-gray-400">
+            <i class="fa fa-sort-up mr-2"></i>
+            <strong>${comment.user}</strong> ${comment.time_ago}
+          </div>
+          <p class="text-gray-700">${comment.content}</p>
+        </div>   `);
+            if (comment.comments.length > 0) this.addHtml(this.makeComment(comment.comments));
+        }
+        return this.getHtml();
+    }
 }
-function router() {
-    const routePath = location.hash;
-    if (routePath === "") // location.hash에 #만 들어있는 경우 빈문자열을 반환한다.
-    newsFeed();
-    else if (routePath.indexOf("#/page/") >= 0) {
-        // #/page/라는 값이 존재한다면
-        store.currentPage = Number(routePath.substring(7)); // 7번째 index부터 사용
-        newsFeed();
-    } else newsDetail();
+class Router {
+    constructor(){
+        window.addEventListener("hashchange", this.route.bind(this)); // hash값이 변할때마다 event 호출
+        this.defaultRoute = null;
+        this.routeTable = [];
+    }
+    setDefaultPage(page) {
+        this.defaultRoute = {
+            path: "",
+            page
+        };
+    }
+    addRoutePath(path, page) {
+        this.routeTable.push({
+            path,
+            page
+        });
+    }
+    route() {
+        const routePath = location.hash;
+        if (routePath === "" && this.defaultRoute) this.defaultRoute.page.render();
+        for (const routeInfo of this.routeTable){
+            if (routePath.indexOf(routeInfo.path) >= 0) routeInfo.page.render();
+            break;
+        }
+    }
 }
-window.addEventListener("hashchange", router); // hash값이 변할때마다 event 호출
-router();
+const router = new Router();
+const newsFeedView = new NewsFeedView("root");
+const newsDetailView = new NewsDetailView("root");
+router.setDefaultPage(newsFeedView);
+router.addRoutePath("/page/", newsFeedView);
+router.addRoutePath("/show/", newsDetailView);
+router.route();
 
 },{}]},["lg1zS","agkQ2"], "agkQ2", "parcelRequire94c2")
 
