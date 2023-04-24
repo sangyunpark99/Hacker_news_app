@@ -567,28 +567,40 @@ function getData(url) {
     ajax.send();
     return JSON.parse(ajax.response);
 } // 요청 보내기
-const newsFeed = getData(NEWS_URL);
-const ul = document.createElement("ul");
-window.addEventListener("hashchange", function() {
-    const id = location.hash.substring(1); // 1번째 index부터 사용
-    const newsContent = getData(CONTENTS_URL.replace("@id", id));
-    const title = document.createElement("h1");
-    title.innerHTML = newsContent.title;
-    content.appendChild(title);
-});
-for(let i = 0; i < newsFeed.length; i++){
-    const div = document.createElement("div");
-    div.innerHTML = `
+function newsFeed() {
+    // 글 목록 화면
+    const newsFeed = getData(NEWS_URL); // newsFeed 데이터 받아오기ß
+    const newsList = [];
+    newsList.push("<ul>");
+    for(let i = 0; i < newsFeed.length; i++)newsList.push(`
     <li>
       <a href="#${newsFeed[i].id}">
         ${newsFeed[i].title} (${newsFeed[i].comments_count})
       </a>
     </li>
-  `;
-    ul.appendChild(div.firstElementChild);
+  `);
+    newsList.push("</ul>");
+    container.innerHTML = `${newsList.join("")}`;
 }
-container.appendChild(ul);
-container.appendChild(content);
+function newsDetail() {
+    const id = location.hash.substring(1); // 1번째 index부터 사용
+    const newsContent = getData(CONTENTS_URL.replace("@id", id));
+    container.innerHTML = `
+    <h1>${newsContent.title}</h1>
+    <div>
+      <a href="#">목록으로</a>
+    </div>
+  `;
+}
+function router() {
+    const routePath = location.hash;
+    console.log(routePath);
+    if (routePath === "") // location.hash에 #만 들어있는 경우 빈문자열을 반환한다.
+    newsFeed();
+    else newsDetail();
+}
+window.addEventListener("hashchange", router);
+router();
 
 },{}]},["62IOj","2eZjZ"], "2eZjZ", "parcelRequire94c2")
 
