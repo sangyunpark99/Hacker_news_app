@@ -142,13 +142,13 @@
       this[globalName] = mainExports;
     }
   }
-})({"62IOj":[function(require,module,exports) {
+})({"lg1zS":[function(require,module,exports) {
 var global = arguments[3];
 var HMR_HOST = null;
 var HMR_PORT = null;
 var HMR_SECURE = false;
 var HMR_ENV_HASH = "d6ea1d42532a7575";
-module.bundle.HMR_BUNDLE_ID = "6d6c3aa19f6fdb5c";
+module.bundle.HMR_BUNDLE_ID = "7adf1c669aca5113";
 "use strict";
 /* global HMR_HOST, HMR_PORT, HMR_ENV_HASH, HMR_SECURE, chrome, browser, globalThis, __parcel__import__, __parcel__importScripts__, ServiceWorkerGlobalScope */ /*::
 import type {
@@ -556,7 +556,7 @@ function hmrAccept(bundle, id) {
     });
 }
 
-},{}],"2eZjZ":[function(require,module,exports) {
+},{}],"agkQ2":[function(require,module,exports) {
 const container = document.getElementById("root");
 const ajax = new XMLHttpRequest();
 const content = document.createElement("div");
@@ -574,6 +574,10 @@ function getData(url) {
 function makeFeed(feeds) {
     for(let i = 0; i < feeds.length; i++)feeds[i].read = false;
     return feeds;
+}
+function updateView(html) {
+    if (container != null) container.innerHTML = html;
+    else console.error("최상위 컨이너가 존재하지 않아 UI를 진행하지 못합니다");
 }
 function newsFeed() {
     // 글 목록 화면
@@ -625,9 +629,9 @@ function newsFeed() {
       </div>   
   `);
     template = template.replace("{{__news_feed__}}", newsList.join(""));
-    template = template.replace("{{__prev_page__}}", store.currentPage > 1 ? store.currentPage - 1 : 1);
-    template = template.replace("{{__next_page__}}", store.currentPage < 3 ? store.currentPage + 1 : store.currentPage);
-    container.innerHTML = template;
+    template = template.replace("{{__prev_page__}}", String(store.currentPage > 1 ? store.currentPage - 1 : 1));
+    template = template.replace("{{__next_page__}}", String(store.currentPage < 3 ? store.currentPage + 1 : store.currentPage));
+    updateView(template);
 }
 function newsDetail() {
     const id = location.hash.substring(7); // 7번째 index부터 사용
@@ -663,21 +667,22 @@ function newsDetail() {
         store.feeds[i].read = true;
         break;
     }
-    function makeComment(comments, called = 0) {
-        const commentString = [];
-        for(let i = 0; i < comments.length; i++){
-            commentString.push(`<div style="padding-left: ${called * 40}px;" class="mt-4">
-          <div class="text-gray-400">
-            <i class="fa fa-sort-up mr-2"></i>
-            <strong>${comments[i].user}</strong> ${comments[i].time_ago}
-          </div>
-          <p class="text-gray-700">${comments[i].content}</p>
-        </div>   `);
-            if (comments[i].comments.length > 0) commentString.push(makeComment(comments[i].comments, called + 1));
-        }
-        return commentString.join("");
+    updateView(template.replace("{{__comments__}}", makeComment(newsContent.comments)));
+}
+function makeComment(comments) {
+    const commentString = [];
+    for(let i = 0; i < comments.length; i++){
+        const comment = comments[i];
+        commentString.push(`<div style="padding-left: ${comment.level * 40}px;" class="mt-4">
+        <div class="text-gray-400">
+          <i class="fa fa-sort-up mr-2"></i>
+          <strong>${comment.user}</strong> ${comment.time_ago}
+        </div>
+        <p class="text-gray-700">${comment.content}</p>
+      </div>   `);
+        if (comment.comments.length > 0) commentString.push(makeComment(comment.comments));
     }
-    container.innerHTML = template.replace("{{__comments__}}", makeComment(newsContent.comments));
+    return commentString.join("");
 }
 function router() {
     const routePath = location.hash;
@@ -692,6 +697,6 @@ function router() {
 window.addEventListener("hashchange", router); // hash값이 변할때마다 event 호출
 router();
 
-},{}]},["62IOj","2eZjZ"], "2eZjZ", "parcelRequire94c2")
+},{}]},["lg1zS","agkQ2"], "agkQ2", "parcelRequire94c2")
 
-//# sourceMappingURL=index.9f6fdb5c.js.map
+//# sourceMappingURL=index.9aca5113.js.map
