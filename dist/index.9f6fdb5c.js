@@ -574,9 +574,19 @@ function getData(url) {
 function newsFeed() {
     // 글 목록 화면
     const newsFeed = getData(NEWS_URL); // newsFeed 데이터 받아오기
-    console.log(newsFeed);
     const newsList = [];
-    newsList.push("<ul>");
+    let template = `
+    <div class="container mx-auto p-4">
+      <h1>Hacker News</h1>
+      <ul>
+        {{__news_feed__}}
+      </ul>
+      <div>
+        <a href="#/page/{{__prev_page__}}">이전 페이지</a>
+        <a href="#/page/{{__next_page__}}">다음 페이지</a>
+      </div>
+    </div>
+  `;
     for(let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++)// 한페이지에 10개씩 보여주기
     newsList.push(`
     <li>
@@ -585,17 +595,13 @@ function newsFeed() {
       </a>
     </li>
   `);
-    newsList.push("</ul>");
-    newsList.push(`
-    <div>
-      <a href="#/page/${store.currentPage > 1 ? store.currentPage - 1 : 1}">이전 페이지</a>
-      <a href="#/page/${store.currentPage < 3 ? store.currentPage + 1 : 3}">다음 페이지</a>
-    </div>
-  `);
-    container.innerHTML = `${newsList.join("")}`;
+    template = template.replace("{{__news_feed__}}", newsList.join(""));
+    template = template.replace("{{__prev_page__}}", store.currentPage > 1 ? store.currentPage - 1 : 1);
+    template = template.replace("{{__next_page__}}", store.currentPage < 3 ? store.currentPage + 1 : store.currentPage);
+    container.innerHTML = template;
 }
 function newsDetail() {
-    const id = location.hash.substring(7); // 1번째 index부터 사용
+    const id = location.hash.substring(7); // 7번째 index부터 사용
     const newsContent = getData(CONTENTS_URL.replace("@id", id));
     container.innerHTML = `
     <h1>${newsContent.title}</h1>
