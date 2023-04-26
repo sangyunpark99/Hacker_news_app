@@ -1,13 +1,13 @@
 import { NewsFeedApi } from "../core/api";
 import { NEWS_URL } from "../config";
 import View from "../core/view";
-import { NewsFeed } from "../types";
+import { NewsFeed, NewsStore } from "../types";
 
 export default class NewsFeedView extends View {
   private api: NewsFeedApi;
-  private feeds: NewsFeed[];
+  private store: NewsStore;
 
-  constructor(containerId: string) {
+  constructor(containerId: string, store: NewsStore) {
     let template = `
     <div class="bg-gray-600 min-h-screen">
     <div class="bg-white text-xl">
@@ -35,25 +35,24 @@ export default class NewsFeedView extends View {
 
     super(containerId, template);
 
+    this.store = store;
     this.api = new NewsFeedApi(NEWS_URL);
-    this.feeds = window.store.feeds; // newsFeed 데이터 받아오기
 
-    if (this.feeds.length == 0) {
-      this.feeds = window.store.feeds = this.api.getData();
-      this.makeFeeds();
+    if (!this.store.hasFeed) {
+      store.setFeeds(this.api.getData());
     }
   }
 
   render(): void {
-    window.store.currentPage = Number(location.hash.substring(7) || 1);
+    this.store.currentPage = Number(location.hash.substring(7) || 1);
     for (
-      let i = (window.store.currentPage - 1) * 10;
-      i < window.store.currentPage * 10;
+      let i = (this.store.currentPage - 1) * 10;
+      i < this.store.currentPage * 10;
       i++
     ) {
       // 한페이지에 10개씩 보여주기
       const { id, title, comments_count, user, points, time_ago, read } =
-        this.feeds[i]; // 구조분해 할당
+        this.store.getFeed(i); // 구조분해 할당
       this.addHtml(`
       <div class="p-6 ${
         read ? "bg-red-500" : "bg-white"
@@ -80,23 +79,17 @@ export default class NewsFeedView extends View {
     this.setTemplateData("news_feed", this.getHtml());
     this.setTemplateData(
       "prev_page",
-      String(window.store.currentPage > 1 ? window.store.currentPage - 1 : 1)
+      String(this.store.currentPage > 1 ? this.store.currentPage - 1 : 1)
     );
     this.setTemplateData(
       "next_page",
       String(
-        window.store.currentPage < 3
-          ? window.store.currentPage + 1
-          : window.store.currentPage
+        this.store.currentPage < 3
+          ? this.store.currentPage + 1
+          : this.store.currentPage
       )
     );
 
     this.updateView();
-  }
-
-  private makeFeeds(): void {
-    for (let i = 0; i < this.feeds.length; i++) {
-      this.feeds[i].read = false;
-    }
   }
 }

@@ -1,9 +1,15 @@
 import View from "../core/view";
 
-export interface Store {
-  // type alias
+export interface NewsStore {
+  getAllFeeds: () => NewsFeed[];
+  getFeed: (position: number) => NewsFeed;
+  setFeeds: (feeds: NewsFeed[]) => void;
+  makeRead: (id: number) => void;
   currentPage: number;
-  feeds: NewsFeed[];
+  nextPage: number;
+  prevPage: number;
+  numberOfFeed: number;
+  hasFeed: boolean;
 }
 
 // intersection 중복 타입 제거

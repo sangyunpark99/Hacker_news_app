@@ -1,5 +1,5 @@
 import { NewsDetailApi } from "../core/api";
-import { NewsDetail, NewsComment } from "../types";
+import { NewsDetail, NewsComment, NewsStore } from "../types";
 import View from "../core/view";
 import { CONTENTS_URL } from "../config";
 
@@ -32,19 +32,25 @@ let template = `<div class="bg-gray-600 min-h-screen pb-8">
 `;
 
 export default class NewsDetailView extends View {
-  constructor(containerId: string) {
+  private store: NewsStore;
+
+  constructor(containerId: string, store: NewsStore) {
     super(containerId, template);
+
+    this.store = store;
   }
 
   render() {
     const id = location.hash.substring(7); // 7번째 index부터 사용
     const api = new NewsDetailApi(CONTENTS_URL.replace("@id", id));
     const newsDetail: NewsDetail = api.getData(id);
-    const store = window.store;
+    const store = this.store;
 
-    for (let i = 0; i < store.feeds.length; i++) {
-      if (store.feeds[i].id === Number(id)) {
-        store.feeds[i].read = true;
+    const feeds = store.getAllFeeds();
+
+    for (let i = 0; i < feeds.length; i++) {
+      if (feeds[i].id === Number(id)) {
+        feeds[i].read = true;
         break;
       }
     }

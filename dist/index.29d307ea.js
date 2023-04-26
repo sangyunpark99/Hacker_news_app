@@ -561,20 +561,18 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 var _router = require("./core/router");
 var _routerDefault = parcelHelpers.interopDefault(_router);
 var _page = require("./page");
-const store = {
-    currentPage: 1,
-    feeds: []
-};
-window.store = store; // 전역 변수로 설정
+var _store = require("./store");
+var _storeDefault = parcelHelpers.interopDefault(_store);
+const store = new (0, _storeDefault.default)();
 const router = new (0, _routerDefault.default)();
-const newsFeedView = new (0, _page.NewsFeedView)("root");
-const newsDetailView = new (0, _page.NewsDetailView)("root");
+const newsFeedView = new (0, _page.NewsFeedView)("root", store);
+const newsDetailView = new (0, _page.NewsDetailView)("root", store);
 router.setDefaultPage(newsFeedView);
 router.addRoutePath("/page/", newsFeedView);
 router.addRoutePath("/show/", newsDetailView);
 router.route();
 
-},{"./core/router":"fFoeY","./page":"e1hnQ","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"fFoeY":[function(require,module,exports) {
+},{"./core/router":"fFoeY","./page":"e1hnQ","./store":"43VJo","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"fFoeY":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 class Router {
@@ -681,16 +679,18 @@ let template = `<div class="bg-gray-600 min-h-screen pb-8">
 </div>
 `;
 class NewsDetailView extends (0, _viewDefault.default) {
-    constructor(containerId){
+    constructor(containerId, store){
         super(containerId, template);
+        this.store = store;
     }
     render() {
         const id = location.hash.substring(7); // 7번째 index부터 사용
         const api = new (0, _api.NewsDetailApi)((0, _config.CONTENTS_URL).replace("@id", id));
         const newsDetail = api.getData(id);
-        const store = window.store;
-        for(let i = 0; i < store.feeds.length; i++)if (store.feeds[i].id === Number(id)) {
-            store.feeds[i].read = true;
+        const store = this.store;
+        const feeds = store.getAllFeeds();
+        for(let i = 0; i < feeds.length; i++)if (feeds[i].id === Number(id)) {
+            feeds[i].read = true;
             break;
         }
         this.setTemplateData("comments", this.makeComment(newsDetail.comments));
@@ -799,7 +799,7 @@ var _config = require("../config");
 var _view = require("../core/view");
 var _viewDefault = parcelHelpers.interopDefault(_view);
 class NewsFeedView extends (0, _viewDefault.default) {
-    constructor(containerId){
+    constructor(containerId, store){
         let template = `
     <div class="bg-gray-600 min-h-screen">
     <div class="bg-white text-xl">
@@ -825,18 +825,15 @@ class NewsFeedView extends (0, _viewDefault.default) {
   </div>
   `;
         super(containerId, template);
+        this.store = store;
         this.api = new (0, _api.NewsFeedApi)((0, _config.NEWS_URL));
-        this.feeds = window.store.feeds; // newsFeed 데이터 받아오기
-        if (this.feeds.length == 0) {
-            this.feeds = window.store.feeds = this.api.getData();
-            this.makeFeeds();
-        }
+        if (!this.store.hasFeed) store.setFeeds(this.api.getData());
     }
     render() {
-        window.store.currentPage = Number(location.hash.substring(7) || 1);
-        for(let i = (window.store.currentPage - 1) * 10; i < window.store.currentPage * 10; i++){
+        this.store.currentPage = Number(location.hash.substring(7) || 1);
+        for(let i = (this.store.currentPage - 1) * 10; i < this.store.currentPage * 10; i++){
             // 한페이지에 10개씩 보여주기
-            const { id , title , comments_count , user , points , time_ago , read  } = this.feeds[i]; // 구조분해 할당
+            const { id , title , comments_count , user , points , time_ago , read  } = this.store.getFeed(i); // 구조분해 할당
             this.addHtml(`
       <div class="p-6 ${read ? "bg-red-500" : "bg-white"} mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
           <div class="flex">
@@ -858,16 +855,62 @@ class NewsFeedView extends (0, _viewDefault.default) {
     `);
         }
         this.setTemplateData("news_feed", this.getHtml());
-        this.setTemplateData("prev_page", String(window.store.currentPage > 1 ? window.store.currentPage - 1 : 1));
-        this.setTemplateData("next_page", String(window.store.currentPage < 3 ? window.store.currentPage + 1 : window.store.currentPage));
+        this.setTemplateData("prev_page", String(this.store.currentPage > 1 ? this.store.currentPage - 1 : 1));
+        this.setTemplateData("next_page", String(this.store.currentPage < 3 ? this.store.currentPage + 1 : this.store.currentPage));
         this.updateView();
-    }
-    makeFeeds() {
-        for(let i = 0; i < this.feeds.length; i++)this.feeds[i].read = false;
     }
 }
 exports.default = NewsFeedView;
 
-},{"../core/api":"pdUZB","../config":"enCV7","../core/view":"3EeQB","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["auCCC","f4TjA"], "f4TjA", "parcelRequire94c2")
+},{"../core/api":"pdUZB","../config":"enCV7","../core/view":"3EeQB","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"43VJo":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+class Store {
+    constructor(){
+        this.feeds = [];
+        this._currentPage = 1;
+    }
+    get currentPage() {
+        return this._currentPage;
+    }
+    set currentPage(page) {
+        if (page <= 0) return;
+        this._currentPage = page;
+    }
+    get nextPage() {
+        return this._currentPage + 1;
+    }
+    get prevPage() {
+        return this.currentPage > 1 ? this._currentPage - 1 : 1;
+    }
+    get numberOfFeed() {
+        return this.feeds.length;
+    }
+    get hasFeed() {
+        return this.feeds.length > 0;
+    }
+    getAllFeeds() {
+        // get은 매개변수 사용 불가
+        return this.feeds;
+    }
+    getFeed(position) {
+        return this.feeds[position];
+    }
+    setFeeds(feeds) {
+        this.feeds = feeds.map((feed)=>{
+            return {
+                ...feed,
+                read: false
+            };
+        });
+    }
+    makeRead(id) {
+        const feed = this.feeds.find((feed)=>feed.id === id);
+        if (feed) feed.read = true;
+    }
+}
+exports.default = Store;
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["auCCC","f4TjA"], "f4TjA", "parcelRequire94c2")
 
 //# sourceMappingURL=index.29d307ea.js.map
