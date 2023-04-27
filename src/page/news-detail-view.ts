@@ -43,24 +43,19 @@ export default class NewsDetailView extends View {
   render() {
     const id = location.hash.substring(7); // 7번째 index부터 사용
     const api = new NewsDetailApi(CONTENTS_URL.replace("@id", id));
-    const newsDetail: NewsDetail = api.getData(id);
+    api.getData((data: NewsDetail) => {
+      const { title, content, comments } = data;
+
+      this.store.makeRead(Number(id));
+
+      this.setTemplateData("comments", this.makeComment(comments));
+      this.setTemplateData("currentPage", String(this.store.currentPage));
+      this.setTemplateData("title", title);
+      this.setTemplateData("content", content);
+
+      this.updateView();
+    });
     const store = this.store;
-
-    const feeds = store.getAllFeeds();
-
-    for (let i = 0; i < feeds.length; i++) {
-      if (feeds[i].id === Number(id)) {
-        feeds[i].read = true;
-        break;
-      }
-    }
-
-    this.setTemplateData("comments", this.makeComment(newsDetail.comments));
-    this.setTemplateData("currentPage", String(store.currentPage));
-    this.setTemplateData("title", newsDetail.title);
-    this.setTemplateData("content", newsDetail.content);
-
-    this.updateView();
   }
 
   makeComment(comments: NewsComment[]): string {

@@ -686,18 +686,16 @@ class NewsDetailView extends (0, _viewDefault.default) {
     render() {
         const id = location.hash.substring(7); // 7번째 index부터 사용
         const api = new (0, _api.NewsDetailApi)((0, _config.CONTENTS_URL).replace("@id", id));
-        const newsDetail = api.getData(id);
+        api.getData((data)=>{
+            const { title , content , comments  } = data;
+            this.store.makeRead(Number(id));
+            this.setTemplateData("comments", this.makeComment(comments));
+            this.setTemplateData("currentPage", String(this.store.currentPage));
+            this.setTemplateData("title", title);
+            this.setTemplateData("content", content);
+            this.updateView();
+        });
         const store = this.store;
-        const feeds = store.getAllFeeds();
-        for(let i = 0; i < feeds.length; i++)if (feeds[i].id === Number(id)) {
-            feeds[i].read = true;
-            break;
-        }
-        this.setTemplateData("comments", this.makeComment(newsDetail.comments));
-        this.setTemplateData("currentPage", String(store.currentPage));
-        this.setTemplateData("title", newsDetail.title);
-        this.setTemplateData("content", newsDetail.content);
-        this.updateView();
     }
     makeComment(comments) {
         for(let i = 0; i < comments.length; i++){
@@ -727,8 +725,11 @@ class Api {
         this.url = url;
         this.ajax = new XMLHttpRequest();
     }
-    getRequest() {
-        this.ajax.open("GET", this.url, false);
+    getRequest(cb) {
+        this.ajax.open("GET", this.url);
+        this.ajax.addEventListener("load", ()=>{
+            cb(JSON.parse(this.ajax.response));
+        });
         this.ajax.send();
         return JSON.parse(this.ajax.response);
     }
@@ -737,16 +738,16 @@ class NewsFeedApi extends Api {
     constructor(url){
         super(url);
     }
-    getData() {
-        return this.getRequest();
+    getData(cb) {
+        return this.getRequest(cb);
     }
 }
 class NewsDetailApi extends Api {
     constructor(url){
         super(url);
     }
-    getData(id) {
-        return this.getRequest();
+    getData(cb) {
+        return this.getRequest(cb);
     }
 }
 
@@ -827,10 +828,16 @@ class NewsFeedView extends (0, _viewDefault.default) {
         super(containerId, template);
         this.store = store;
         this.api = new (0, _api.NewsFeedApi)((0, _config.NEWS_URL));
-        if (!this.store.hasFeed) store.setFeeds(this.api.getData());
     }
     render() {
         this.store.currentPage = Number(location.hash.substring(7) || 1);
+        if (!this.store.hasFeed) this.api.getData((feeds)=>{
+            this.store.setFeeds(feeds);
+            this.renderView();
+        });
+        this.renderView();
+    }
+    renderView = ()=>{
         for(let i = (this.store.currentPage - 1) * 10; i < this.store.currentPage * 10; i++){
             // 한페이지에 10개씩 보여주기
             const { id , title , comments_count , user , points , time_ago , read  } = this.store.getFeed(i); // 구조분해 할당
@@ -858,7 +865,7 @@ class NewsFeedView extends (0, _viewDefault.default) {
         this.setTemplateData("prev_page", String(this.store.currentPage > 1 ? this.store.currentPage - 1 : 1));
         this.setTemplateData("next_page", String(this.store.currentPage < 3 ? this.store.currentPage + 1 : this.store.currentPage));
         this.updateView();
-    }
+    };
 }
 exports.default = NewsFeedView;
 
