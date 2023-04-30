@@ -683,19 +683,17 @@ class NewsDetailView extends (0, _viewDefault.default) {
         super(containerId, template);
         this.store = store;
     }
-    render() {
+    render = async ()=>{
         const id = location.hash.substring(7); // 7번째 index부터 사용
         const api = new (0, _api.NewsDetailApi)((0, _config.CONTENTS_URL).replace("@id", id));
-        api.getDataWithPromise((data)=>{
-            const { title , content , comments  } = data;
-            this.store.makeRead(Number(id));
-            this.setTemplateData("comments", this.makeComment(comments));
-            this.setTemplateData("currentPage", String(this.store.currentPage));
-            this.setTemplateData("title", title);
-            this.setTemplateData("content", content);
-            this.updateView();
-        });
-    }
+        const { title , content , comments  } = await api.getData();
+        this.store.makeRead(Number(id));
+        this.setTemplateData("comments", this.makeComment(comments));
+        this.setTemplateData("currentPage", String(this.store.currentPage));
+        this.setTemplateData("title", title);
+        this.setTemplateData("content", content);
+        this.updateView();
+    };
     makeComment(comments) {
         for(let i = 0; i < comments.length; i++){
             const comment = comments[i];
@@ -724,40 +722,26 @@ class Api {
         this.url = url;
         this.xhr = new XMLHttpRequest();
     }
-    getRequestWithXHR(cb) {
-        this.xhr.open("GET", this.url);
-        this.xhr.addEventListener("load", ()=>{
-            cb(JSON.parse(this.xhr.response));
-        });
-        this.xhr.send();
-        return JSON.parse(this.xhr.response);
-    }
-    getRequestWithPromise(cb) {
-        fetch(this.url).then((response)=>response.json()).then(cb).catch((e)=>{
-            console.error("데이터를 불러오는데 실패하였습니다.");
-        });
+    async request() {
+        // AjaxResponse : Generic
+        const response = await fetch(this.url);
+        return await response.json();
     }
 }
 class NewsFeedApi extends Api {
     constructor(url){
         super(url);
     }
-    getDataWithXHR(cb) {
-        return this.getRequestWithXHR(cb);
-    }
-    getDataWithPromise(cb) {
-        return this.getRequestWithPromise(cb);
+    async getData() {
+        return this.request();
     }
 }
 class NewsDetailApi extends Api {
     constructor(url){
         super(url);
     }
-    getDataWithXHR(cb) {
-        return this.getRequestWithXHR(cb);
-    }
-    getDataWithPromise(cb) {
-        return this.getRequestWithPromise(cb);
+    async getData() {
+        return this.request();
     }
 }
 
@@ -839,15 +823,9 @@ class NewsFeedView extends (0, _viewDefault.default) {
         this.store = store;
         this.api = new (0, _api.NewsFeedApi)((0, _config.NEWS_URL));
     }
-    render() {
+    render = async ()=>{
         this.store.currentPage = Number(location.hash.substring(7) || 1);
-        if (!this.store.hasFeed) this.api.getDataWithPromise((feeds)=>{
-            this.store.setFeeds(feeds);
-            this.renderView();
-        });
-        this.renderView(); // 페이징 처리를 위한 renderView
-    }
-    renderView = ()=>{
+        if (!this.store.hasFeed) this.store.setFeeds(await this.api.getData());
         for(let i = (this.store.currentPage - 1) * 10; i < this.store.currentPage * 10; i++){
             // 한페이지에 10개씩 보여주기
             const { id , title , comments_count , user , points , time_ago , read  } = this.store.getFeed(i); // 구조분해 할당
