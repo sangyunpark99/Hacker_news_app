@@ -43,13 +43,13 @@ export default class NewsFeedView extends View {
     this.store.currentPage = Number(location.hash.substring(7) || 1);
 
     if (!this.store.hasFeed) {
-      this.api.getData((feeds: NewsFeed[]) => {
+      this.api.getDataWithPromise((feeds: NewsFeed[]) => {
         this.store.setFeeds(feeds);
         this.renderView();
       });
     }
 
-    this.renderView();
+    this.renderView(); // 페이징 처리를 위한 renderView
   }
 
   renderView = () => {
@@ -61,6 +61,7 @@ export default class NewsFeedView extends View {
       // 한페이지에 10개씩 보여주기
       const { id, title, comments_count, user, points, time_ago, read } =
         this.store.getFeed(i); // 구조분해 할당
+
       this.addHtml(`
       <div class="p-6 ${
         read ? "bg-red-500" : "bg-white"

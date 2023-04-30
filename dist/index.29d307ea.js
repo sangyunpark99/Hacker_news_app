@@ -686,7 +686,7 @@ class NewsDetailView extends (0, _viewDefault.default) {
     render() {
         const id = location.hash.substring(7); // 7번째 index부터 사용
         const api = new (0, _api.NewsDetailApi)((0, _config.CONTENTS_URL).replace("@id", id));
-        api.getData((data)=>{
+        api.getDataWithPromise((data)=>{
             const { title , content , comments  } = data;
             this.store.makeRead(Number(id));
             this.setTemplateData("comments", this.makeComment(comments));
@@ -695,7 +695,6 @@ class NewsDetailView extends (0, _viewDefault.default) {
             this.setTemplateData("content", content);
             this.updateView();
         });
-        const store = this.store;
     }
     makeComment(comments) {
         for(let i = 0; i < comments.length; i++){
@@ -723,31 +722,42 @@ parcelHelpers.export(exports, "NewsDetailApi", ()=>NewsDetailApi);
 class Api {
     constructor(url){
         this.url = url;
-        this.ajax = new XMLHttpRequest();
+        this.xhr = new XMLHttpRequest();
     }
-    getRequest(cb) {
-        this.ajax.open("GET", this.url);
-        this.ajax.addEventListener("load", ()=>{
-            cb(JSON.parse(this.ajax.response));
+    getRequestWithXHR(cb) {
+        this.xhr.open("GET", this.url);
+        this.xhr.addEventListener("load", ()=>{
+            cb(JSON.parse(this.xhr.response));
         });
-        this.ajax.send();
-        return JSON.parse(this.ajax.response);
+        this.xhr.send();
+        return JSON.parse(this.xhr.response);
+    }
+    getRequestWithPromise(cb) {
+        fetch(this.url).then((response)=>response.json()).then(cb).catch((e)=>{
+            console.error("데이터를 불러오는데 실패하였습니다.");
+        });
     }
 }
 class NewsFeedApi extends Api {
     constructor(url){
         super(url);
     }
-    getData(cb) {
-        return this.getRequest(cb);
+    getDataWithXHR(cb) {
+        return this.getRequestWithXHR(cb);
+    }
+    getDataWithPromise(cb) {
+        return this.getRequestWithPromise(cb);
     }
 }
 class NewsDetailApi extends Api {
     constructor(url){
         super(url);
     }
-    getData(cb) {
-        return this.getRequest(cb);
+    getDataWithXHR(cb) {
+        return this.getRequestWithXHR(cb);
+    }
+    getDataWithPromise(cb) {
+        return this.getRequestWithPromise(cb);
     }
 }
 
@@ -831,11 +841,11 @@ class NewsFeedView extends (0, _viewDefault.default) {
     }
     render() {
         this.store.currentPage = Number(location.hash.substring(7) || 1);
-        if (!this.store.hasFeed) this.api.getData((feeds)=>{
+        if (!this.store.hasFeed) this.api.getDataWithPromise((feeds)=>{
             this.store.setFeeds(feeds);
             this.renderView();
         });
-        this.renderView();
+        this.renderView(); // 페이징 처리를 위한 renderView
     }
     renderView = ()=>{
         for(let i = (this.store.currentPage - 1) * 10; i < this.store.currentPage * 10; i++){
